@@ -57,9 +57,11 @@ namespace AudioSwitcher.Audio
         {
             IMMDeviceCollection underlyingCollection;
             HResult hr = _deviceEnumerator.EnumAudioEndpoints(kind, state, out underlyingCollection);
-            hr.ThrowOnFailure();
+            if (hr.Succeeded)
+                return new AudioDeviceCollection(underlyingCollection);
 
-            throw Marshal.GetExceptionForHR(hr);
+            hr.ThrowOnFailure();
+            return null;
         }
 
         public void SetDefaultAudioDevice(AudioDevice device)
