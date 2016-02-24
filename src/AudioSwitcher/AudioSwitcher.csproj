@@ -24,6 +24,7 @@
     <Prefer32Bit>false</Prefer32Bit>
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -36,6 +37,7 @@
     <Prefer32Bit>false</Prefer32Bit>
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>AudioSwitcher.Program</StartupObject>
@@ -114,7 +116,9 @@
     <Compile Include="ComponentModel\ILifetime`2.cs" />
     <Compile Include="ComponentModel\ILifetime.cs" />
     <Compile Include="ComponentModel\IPriorityMetadata.cs" />
+    <Compile Include="Interop\HResults.cs" />
     <Compile Include="IO\StreamExtensions.cs" />
+    <Compile Include="Presentation\Drawing\Interop\IconStructuresExtensions.cs" />
     <Compile Include="Presentation\IPresenter.cs" />
     <Compile Include="Presentation\NonModalPresenter.cs" />
     <Compile Include="Presentation\PresenterAttribute.cs" />
@@ -151,7 +155,6 @@
     <Compile Include="Audio\AudioDeviceRemovedEventArgs.cs" />
     <Compile Include="Audio\AudioDeviceEventArgs.cs" />
     <Compile Include="ApplicationModel\AudioSwitcherApp.cs" />
-    <Compile Include="Interop\HResult.cs" />
     <Compile Include="Audio\Interop\MMAudio\Blob.cs" />
     <Compile Include="Audio\Interop\MMAudio\ClsCtx.cs" />
     <Compile Include="Audio\AudioDeviceKind.cs" />
@@ -174,7 +177,6 @@
     <Compile Include="Audio\AudioDeviceRole.cs" />
     <Compile Include="Audio\Interop\MMAudio\StorageAccessMode.cs" />
     <Compile Include="Audio\Interop\MMAudio\PolicyConfig.cs" />
-    <Compile Include="Interop\ExternalDll.cs" />
     <Compile Include="Presentation\UI\ToolStripItemCommandBinding.cs" />
     <Compile Include="Presentation\CommandModel\CommandManager.cs" />
     <Compile Include="Presentation\CommandModel\CommandOfT.cs" />
@@ -190,16 +192,6 @@
     <Compile Include="Presentation\Drawing\DrawingServices.cs" />
     <Compile Include="Presentation\Drawing\IconExtractor.cs" />
     <Compile Include="Presentation\Drawing\IconInfo.cs" />
-    <Compile Include="Presentation\Drawing\Interop\DllImports.cs" />
-    <Compile Include="Presentation\Drawing\Interop\EnumResNameProc.cs" />
-    <Compile Include="Presentation\Drawing\Interop\GroupIconDir.cs" />
-    <Compile Include="Presentation\Drawing\Interop\GroupIconDirEntry.cs" />
-    <Compile Include="Presentation\Drawing\Interop\IconDirEntry.cs" />
-    <Compile Include="Presentation\Drawing\Interop\IconDir.cs" />
-    <Compile Include="Presentation\Drawing\Interop\LoadLibraryExFlags.cs" />
-    <Compile Include="Presentation\Drawing\Interop\LookupIconIdFromDirectoryExFlags.cs" />
-    <Compile Include="Presentation\Drawing\Interop\ResourceTypes.cs" />
-    <Compile Include="Presentation\Drawing\Interop\SafeModuleHandle.cs" />
     <Compile Include="Presentation\Drawing\ResourceName.cs" />
     <Compile Include="Presentation\Drawing\ShellIcon.cs" />
     <Compile Include="Presentation\UI\AudioContextMenuStrip.cs">
@@ -211,7 +203,6 @@
     <Compile Include="Presentation\UI\AudioToolStripMenuItem.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Presentation\UI\Interop\DllImports.cs" />
     <Compile Include="Audio\Interop\MMAudio\IPolicyConfig3.cs" />
     <Compile Include="UI\Presenters\NotificationIconContextMenuPresenter.cs" />
     <Compile Include="UI\Presenters\DeviceFlyoutPresenter.cs" />
@@ -229,7 +220,6 @@
     <Compile Include="Presentation\UI\Renderer\MenuBarStates.cs" />
     <Compile Include="Presentation\UI\Renderer\MenuParts.cs" />
     <Compile Include="Presentation\UI\Renderer\ToolStripNativeRenderer.cs" />
-    <Compile Include="Presentation\UI\Interop\MARGINS.cs" />
     <Compile Include="Presentation\UI\Renderer\ToolbarTheme.cs" />
     <Compile Include="Presentation\UI\UIServices.cs" />
     <Compile Include="UI\ViewModels\AudioDeviceViewModelManager.cs" />

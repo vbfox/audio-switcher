@@ -29,6 +29,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using AudioSwitcher.Audio.Interop;
 using AudioSwitcher.Interop;
+using PInvoke;
 
 namespace AudioSwitcher.Audio
 {
@@ -42,9 +43,8 @@ namespace AudioSwitcher.Audio
         {
             _synchronizationContext = SynchronizationContext.Current;
 
-            int hr = _deviceEnumerator.RegisterEndpointNotificationCallback(this);
-            if (hr != HResult.OK)
-                throw Marshal.GetExceptionForHR(hr);
+            HResult hr = _deviceEnumerator.RegisterEndpointNotificationCallback(this);
+            hr.ThrowOnFailure();
         }
 
         public event EventHandler<AudioDeviceEventArgs> DeviceAdded;
@@ -56,9 +56,8 @@ namespace AudioSwitcher.Audio
         public AudioDeviceCollection GetAudioDevices(AudioDeviceKind kind, AudioDeviceState state)
         {
             IMMDeviceCollection underlyingCollection;
-            int hr = _deviceEnumerator.EnumAudioEndpoints(kind, state, out underlyingCollection);
-            if (hr == HResult.OK)
-                return new AudioDeviceCollection(underlyingCollection);
+            HResult hr = _deviceEnumerator.EnumAudioEndpoints(kind, state, out underlyingCollection);
+            hr.ThrowOnFailure();
 
             throw Marshal.GetExceptionForHR(hr);
         }
@@ -84,7 +83,7 @@ namespace AudioSwitcher.Audio
             // in his grave if he knew you were using this for nefarious purposes.
             var config = new PolicyConfig();
 
-            int hr;
+            HResult hr;
             IPolicyConfig2 config2 = config as IPolicyConfig2;
             if (config2 != null)
             {   // Windows 7 -> Windows 8.1
@@ -95,8 +94,7 @@ namespace AudioSwitcher.Audio
                 hr = ((IPolicyConfig3)config).SetDefaultEndpoint(device.Id, role);
             }
 
-            if (hr != HResult.OK)
-                throw Marshal.GetExceptionForHR(hr);
+            hr.ThrowOnFailure();
         }
 
         public bool IsDefaultAudioDevice(AudioDevice device, AudioDeviceRole role)
@@ -114,11 +112,11 @@ namespace AudioSwitcher.Audio
         public AudioDevice GetDefaultAudioDevice(AudioDeviceKind kind, AudioDeviceRole role)
         {
             IMMDevice underlyingDevice;
-            int hr = _deviceEnumerator.GetDefaultAudioEndpoint(kind, role, out underlyingDevice);
-            if (hr == HResult.OK)
+            HResult hr = _deviceEnumerator.GetDefaultAudioEndpoint(kind, role, out underlyingDevice);
+            if (hr.Succeeded)
                 return new AudioDevice(underlyingDevice);
-
-            if (hr == HResult.NotFound || hr == HResult.FileNotFound)   // See #33
+            
+            if (hr.Value == HResults.NotFound || hr == HResults.FileNotFound)   // See #33
                 return null;
 
             throw Marshal.GetExceptionForHR(hr);
@@ -130,11 +128,11 @@ namespace AudioSwitcher.Audio
                 throw new ArgumentNullException("id");
 
             IMMDevice underlyingDevice;
-            int hr = _deviceEnumerator.GetDevice(id, out underlyingDevice);
-            if (hr == HResult.OK)
+            HResult hr = _deviceEnumerator.GetDevice(id, out underlyingDevice);
+            if (hr.Succeeded)
                 return new AudioDevice(underlyingDevice);
 
-            if (hr == HResult.NotFound)
+            if (hr == HResults.NotFound)
                 return null;
 
             throw Marshal.GetExceptionForHR(hr);
@@ -218,9 +216,8 @@ namespace AudioSwitcher.Audio
 
         public void Dispose()
         {
-            int hr = _deviceEnumerator.UnregisterEndpointNotificationCallback(this);
-            if (hr != HResult.OK)
-                throw Marshal.GetExceptionForHR(hr);
+            HResult hr = _deviceEnumerator.UnregisterEndpointNotificationCallback(this);
+            hr.ThrowOnFailure();
         }
 
         private void InvokeOnSynchronizationContext(Action action)

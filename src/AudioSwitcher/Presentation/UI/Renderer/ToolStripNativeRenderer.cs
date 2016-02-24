@@ -15,7 +15,9 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
-using AudioSwitcher.Presentation.UI.Interop;
+using PInvoke;
+using static PInvoke.User32;
+using static PInvoke.UxTheme;
 
 namespace AudioSwitcher.Presentation.UI
 {
@@ -483,15 +485,16 @@ namespace AudioSwitcher.Presentation.UI
             }
         }
 
-        private Padding GetThemeMargins(IDeviceContext dc, MarginTypes marginType)
+        private unsafe Padding GetThemeMargins(IDeviceContext dc, MarginTypes marginType)
         {
             
             try
             {
-                IntPtr hDC = dc.GetHdc();
-
+                SafeDCHandle hDC = new SafeDCHandle(IntPtr.Zero, dc.GetHdc(), false);
+                
                 MARGINS margins;
-                if (DllImports.GetThemeMargins(_renderer.Handle, hDC, _renderer.Part, _renderer.State, (int)marginType, IntPtr.Zero, out margins) == 0)
+                SafeThemeHandle themeHandle = new SafeThemeHandle(_renderer.Handle, false);
+                if (UxTheme.GetThemeMargins(themeHandle, hDC, _renderer.Part, _renderer.State, (int)marginType, IntPtr.Zero, out margins) == 0)
                     return new Padding(margins.cxLeftWidth, margins.cyTopHeight, margins.cxRightWidth, margins.cyBottomHeight);
 
                 return new Padding(0);

@@ -9,7 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using AudioSwitcher.Presentation.UI.Interop;
+using static PInvoke.User32;
 
 namespace AudioSwitcher.Presentation.UI
 {
@@ -34,7 +34,7 @@ namespace AudioSwitcher.Presentation.UI
 		public new void Show(Control control, Point controlLocation)
 		{
 			// Prevents the context menu from causing the app to show in the taskbar
-			DllImports.SetForegroundWindow(new HandleRef(this, Handle));
+			SetForegroundWindow(Handle);
 
             Capture = true;
 			base.Show(control, controlLocation);
@@ -43,7 +43,7 @@ namespace AudioSwitcher.Presentation.UI
         public void ShowInSystemTray(Point screenLocation)
         {
             // Prevents the context menu from causing the app to show in the taskbar
-            DllImports.SetForegroundWindow(new HandleRef(this, Handle));
+            SetForegroundWindow(Handle);
 
             if (WorkingAreaConstrained)
             {

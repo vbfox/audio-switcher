@@ -3,17 +3,19 @@
 // -----------------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
+using PInvoke;
+using static PInvoke.Kernel32;
 
 namespace AudioSwitcher.Presentation.Drawing
 {
     /// <summary>
     /// Represents a resource name (either integer resource or string resource).
     /// </summary>
-    internal class ResourceName : IDisposable
+    internal unsafe class ResourceName : IDisposable
     {
         private readonly int? _id;
         private readonly string _name;
-        private IntPtr _value;
+        private char* _value;
 
         /// <summary>
         /// Initializes a new AudioSwitcher.Presentation.Drawing.ResourceName object.
@@ -25,17 +27,17 @@ namespace AudioSwitcher.Presentation.Drawing
         /// If the first character of the string is a pound sign (#), the remaining characters represent a decimal number that specifies the integer identifier of the resource. For example, the string "#258" represents the identifier 258.
         /// #define IS_INTRESOURCE(_r) ((((ULONG_PTR)(_r)) >> 16) == 0).
         /// </remarks>
-        public ResourceName(IntPtr lpName)
+        public ResourceName(char* lpName)
         {
-            if (((uint)lpName >> 16) == 0)  //Integer resource
+            if (IS_INTRESOURCE(lpName))  //Integer resource
             {
-                _id = lpName.ToInt32();
+                _id = (int)lpName;
                 _name = null;
             }
             else
             {
                 _id = null;
-                _name = Marshal.PtrToStringAuto(lpName);
+                _name = Marshal.PtrToStringAuto((IntPtr)lpName);
             }
         }
 
@@ -60,15 +62,15 @@ namespace AudioSwitcher.Presentation.Drawing
         /// <summary>
         /// Gets a pointer to resource name that can be used in FindResource function.
         /// </summary>
-        public IntPtr Value
+        public char* Value
         {
             get
             {
-                if (IsIntResource)
-                    return new IntPtr(Id.Value);
+                if (Id != null)
+                    return MAKEINTRESOURCE(Id.Value);
 
-                if (_value == IntPtr.Zero)
-                    _value = Marshal.StringToHGlobalAuto(Name);
+                if (_value == null)
+                    _value = (char*)Marshal.StringToHGlobalAuto(Name);
 
                 return _value;
             }
@@ -114,15 +116,15 @@ namespace AudioSwitcher.Presentation.Drawing
 
         protected virtual void Dispose(bool disposing)
         {
-            if (_value != IntPtr.Zero)
+            if (_value != null)
             {
                 try 
                 { 
-                    Marshal.FreeHGlobal(_value); 
+                    Marshal.FreeHGlobal((IntPtr)_value); 
                 }
                 finally
                 {
-                    _value = IntPtr.Zero;
+                    _value = null;
                 }
             }
         }

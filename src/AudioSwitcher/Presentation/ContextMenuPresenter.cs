@@ -8,7 +8,6 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using AudioSwitcher.ApplicationModel;
 using AudioSwitcher.Presentation.UI;
-using AudioSwitcher.Presentation.UI.Interop;
 
 namespace AudioSwitcher.Presentation
 {

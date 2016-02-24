@@ -3,7 +3,8 @@
 // -----------------------------------------------------------------------
 using System;
 using System.Drawing;
-using AudioSwitcher.Presentation.UI.Interop;
+using static PInvoke.User32;
+using static PInvoke.Gdi32;
 
 namespace AudioSwitcher.Presentation.UI
 {
@@ -32,21 +33,15 @@ namespace AudioSwitcher.Presentation.UI
             const int LOGPIXELSX = 88;
             const int LOGPIXELSY = 90;
 
-            IntPtr primaryMonitorDC = DllImports.GetDC(IntPtr.Zero);
-
-            try
+            using (SafeDCHandle primaryMonitorDC = GetDC(IntPtr.Zero))
             {
-                int deviceDpiX = DllImports.GetDeviceCaps(primaryMonitorDC, LOGPIXELSX);
-                int deviceDpiY = DllImports.GetDeviceCaps(primaryMonitorDC, LOGPIXELSY);
+                int deviceDpiX = GetDeviceCaps(primaryMonitorDC, LOGPIXELSX);
+                int deviceDpiY = GetDeviceCaps(primaryMonitorDC, LOGPIXELSY);
 
-                double scalingFactorX = deviceDpiX / LogicalDpi;
-                double scalingFactorY = deviceDpiY / LogicalDpi;
+                double scalingFactorX = deviceDpiX/LogicalDpi;
+                double scalingFactorY = deviceDpiY/LogicalDpi;
 
                 return new SizeF((float)scalingFactorX, (float)scalingFactorY);
-            }
-            finally
-            {
-                DllImports.ReleaseDC(IntPtr.Zero, primaryMonitorDC);
             }
         }
     }

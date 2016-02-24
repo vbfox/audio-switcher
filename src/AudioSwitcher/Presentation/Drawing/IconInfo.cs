@@ -8,6 +8,8 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using AudioSwitcher.IO;
 using AudioSwitcher.Presentation.Drawing.Interop;
+using static PInvoke.Kernel32;
+using static PInvoke.User32;
 
 namespace AudioSwitcher.Presentation.Drawing
 {
@@ -18,10 +20,10 @@ namespace AudioSwitcher.Presentation.Drawing
     internal class IconInfo
     {
         #region ReadOnly
-        public static int SizeOfIconDir = Marshal.SizeOf(typeof(IconDir));
-        public static int SizeOfIconDirEntry = Marshal.SizeOf(typeof(IconDirEntry));
-        public static int SizeOfGroupIconDir = Marshal.SizeOf(typeof(GroupIconDir));
-        public static int SizeOfGroupIconDirEntry = Marshal.SizeOf(typeof(GroupIconDirEntry));
+        public static int SizeOfIconDir = Marshal.SizeOf(typeof(ICONDIR));
+        public static int SizeOfIconDirEntry = Marshal.SizeOf(typeof(ICONDIRENTRY));
+        public static int SizeOfGroupIconDir = Marshal.SizeOf(typeof(GRPICONDIR));
+        public static int SizeOfGroupIconDirEntry = Marshal.SizeOf(typeof(GRPICONDIRENTRY));
         #endregion
 
         #region Properties
@@ -140,41 +142,41 @@ namespace AudioSwitcher.Presentation.Drawing
         #endregion
 
         #region Icon Headers Properties
-        private IconDir _iconDir;
+        private ICONDIR _iconDir;
         /// <summary>
         /// Gets the AudioSwitcher.Presentation.Drawing.IconDir of the icon.
         /// </summary>
-        public IconDir IconDir
+        public ICONDIR IconDir
         {
             get { return _iconDir; }
             private set { _iconDir = value; }
         }
 
-        private GroupIconDir _groupIconDir;
+        private GRPICONDIR _groupIconDir;
         /// <summary>
         /// Gets the AudioSwitcher.Presentation.Drawing.GroupIconDir of the icon.
         /// </summary>
-        public GroupIconDir GroupIconDir
+        public GRPICONDIR GroupIconDir
         {
             get { return _groupIconDir; }
             private set { _groupIconDir = value; }
         }
 
-        private List<IconDirEntry> _iconDirEntries;
+        private List<ICONDIRENTRY> _iconDirEntries;
         /// <summary>
         /// Gets a list of AudioSwitcher.Presentation.Drawing.IconDirEntry of the icon.
         /// </summary>
-        public List<IconDirEntry> IconDirEntries
+        public List<ICONDIRENTRY> IconDirEntries
         {
             get { return _iconDirEntries; }
             private set { _iconDirEntries = value; }
         }
 
-        private List<GroupIconDirEntry> _groupIconDirEntries;
+        private List<GRPICONDIRENTRY> _groupIconDirEntries;
         /// <summary>
         /// Gets a list of AudioSwitcher.Presentation.Drawing.GroupIconDirEntry of the icon.
         /// </summary>
-        public List<GroupIconDirEntry> GroupIconDirEntries
+        public List<GRPICONDIRENTRY> GroupIconDirEntries
         {
             get { return _groupIconDirEntries; }
             private set { _groupIconDirEntries = value; }
@@ -233,7 +235,7 @@ namespace AudioSwitcher.Presentation.Drawing
             int iconIndex = 0;
             IntPtr resBits = Marshal.AllocHGlobal(this.ResourceRawData.Length);
             Marshal.Copy(this.ResourceRawData, 0, resBits, this.ResourceRawData.Length);
-            try { iconIndex = DllImports.LookupIconIdFromDirectory(resBits, true); }
+            try { iconIndex = LookupIconIdFromDirectory(resBits, true); }
             finally { Marshal.FreeHGlobal(resBits); }
 
             return iconIndex;
@@ -261,7 +263,7 @@ namespace AudioSwitcher.Presentation.Drawing
                 flags = LookupIconIdFromDirectoryExFlags.LR_MONOCHROME;
             IntPtr resBits = Marshal.AllocHGlobal(this.ResourceRawData.Length);
             Marshal.Copy(this.ResourceRawData, 0, resBits, this.ResourceRawData.Length);
-            try { iconIndex = DllImports.LookupIconIdFromDirectoryEx(resBits, true, desiredSize.Width, desiredSize.Height, flags); }
+            try { iconIndex = LookupIconIdFromDirectoryEx(resBits, true, desiredSize.Width, desiredSize.Height, flags); }
             finally { Marshal.FreeHGlobal(resBits); }
 
             return iconIndex;
@@ -278,38 +280,38 @@ namespace AudioSwitcher.Presentation.Drawing
             this.SourceIcon.Save(inputStream);
 
             inputStream.Seek(0, SeekOrigin.Begin);
-            IconDir dir = inputStream.Read<IconDir>();
+            ICONDIR dir = inputStream.Read<ICONDIR>();
 
             this.IconDir = dir;
             this.GroupIconDir = dir.ToGroupIconDir();
 
-            this.Images = new List<Icon>(dir.Count);
-            this.IconDirEntries = new List<IconDirEntry>(dir.Count);
-            this.GroupIconDirEntries = new List<GroupIconDirEntry>(dir.Count);
-            this.RawData = new List<byte[]>(dir.Count);
+            this.Images = new List<Icon>(dir.idCount);
+            this.IconDirEntries = new List<ICONDIRENTRY>(dir.idCount);
+            this.GroupIconDirEntries = new List<GRPICONDIRENTRY>(dir.idCount);
+            this.RawData = new List<byte[]>(dir.idCount);
 
-            IconDir newDir = dir;
-            newDir.Count = 1;
-            for (int i = 0; i < dir.Count; i++)
+            ICONDIR newDir = dir;
+            newDir.idCount = 1;
+            for (int i = 0; i < dir.idCount; i++)
             {
                 inputStream.Seek(SizeOfIconDir + i * SizeOfIconDirEntry, SeekOrigin.Begin);
 
-                IconDirEntry entry = inputStream.Read<IconDirEntry>();
+                ICONDIRENTRY entry = inputStream.Read<ICONDIRENTRY>();
 
                 this.IconDirEntries.Add(entry);
                 this.GroupIconDirEntries.Add(entry.ToGroupIconDirEntry(i));
 
-                byte[] content = new byte[entry.BytesInRes];
-                inputStream.Seek(entry.ImageOffset, SeekOrigin.Begin);
+                byte[] content = new byte[entry.dwBytesInRes];
+                inputStream.Seek(entry.dwImageOffset, SeekOrigin.Begin);
                 inputStream.Read(content, 0, content.Length);
                 this.RawData.Add(content);
 
-                IconDirEntry newEntry = entry;
-                newEntry.ImageOffset = SizeOfIconDir + SizeOfIconDirEntry;
+                ICONDIRENTRY newEntry = entry;
+                newEntry.dwImageOffset = (uint)(SizeOfIconDir + SizeOfIconDirEntry);
 
                 MemoryStream outputStream = new MemoryStream();
-                outputStream.Write<IconDir>(newDir);
-                outputStream.Write<IconDirEntry>(newEntry);
+                outputStream.Write<ICONDIR>(newDir);
+                outputStream.Write<ICONDIRENTRY>(newEntry);
                 outputStream.Write(content, 0, content.Length);
 
                 outputStream.Seek(0, SeekOrigin.Begin);
@@ -317,29 +319,29 @@ namespace AudioSwitcher.Presentation.Drawing
                 outputStream.Close();
 
                 this.Images.Add(newIcon);
-                if (dir.Count == 1)
+                if (dir.idCount == 1)
                 {
                     this.BestFitIconIndex = 0;
 
-                    this.Width = entry.Width;
-                    this.Height = entry.Height;
-                    this.ColorCount = entry.ColorCount;
-                    this.Planes = entry.Planes;
-                    this.BitCount = entry.BitCount;
+                    this.Width = entry.bWidth;
+                    this.Height = entry.bHeight;
+                    this.ColorCount = entry.bColorCount;
+                    this.Planes = entry.wPlanes;
+                    this.BitCount = entry.wBitCount;
                 }
             }
             inputStream.Close();
             this.ResourceRawData = GetIconResourceData();
 
-            if (dir.Count > 1)
+            if (dir.idCount > 1)
             {
                 this.BestFitIconIndex = GetBestFitIconIndex();
 
-                this.Width = this.IconDirEntries[this.BestFitIconIndex].Width;
-                this.Height = this.IconDirEntries[this.BestFitIconIndex].Height;
-                this.ColorCount = this.IconDirEntries[this.BestFitIconIndex].ColorCount;
-                this.Planes = this.IconDirEntries[this.BestFitIconIndex].Planes;
-                this.BitCount = this.IconDirEntries[this.BestFitIconIndex].BitCount;
+                this.Width = this.IconDirEntries[this.BestFitIconIndex].bWidth;
+                this.Height = this.IconDirEntries[this.BestFitIconIndex].bHeight;
+                this.ColorCount = this.IconDirEntries[this.BestFitIconIndex].bColorCount;
+                this.Planes = this.IconDirEntries[this.BestFitIconIndex].wPlanes;
+                this.BitCount = this.IconDirEntries[this.BestFitIconIndex].wBitCount;
             }
 
         }
@@ -350,7 +352,7 @@ namespace AudioSwitcher.Presentation.Drawing
             {
                 outputStream.Write(GroupIconDir);
 
-                foreach (GroupIconDirEntry entry in this.GroupIconDirEntries)
+                foreach (GRPICONDIRENTRY entry in this.GroupIconDirEntries)
                 {
                     outputStream.Write(entry);
                 }

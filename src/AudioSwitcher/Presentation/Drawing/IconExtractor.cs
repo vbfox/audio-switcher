@@ -4,13 +4,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Drawing;
 using System.IO;
-using System.Runtime.InteropServices;
 using AudioSwitcher.IO;
 using AudioSwitcher.Presentation.Drawing.Interop;
 using AudioSwitcher.Win32.InteropServices;
+using PInvoke;
+using static PInvoke.Kernel32;
 
 namespace AudioSwitcher.Presentation.Drawing
 {
@@ -20,15 +20,15 @@ namespace AudioSwitcher.Presentation.Drawing
     internal class IconExtractor : IDisposable
     {
         private readonly ReadOnlyCollection<ResourceName> _iconNames;
-        private readonly SafeModuleHandle _moduleHandle;
+        private readonly SafeLibraryHandle _moduleHandle;
 
-        public IconExtractor(SafeModuleHandle moduleHandle, IList<ResourceName> iconNames)
+        public IconExtractor(SafeLibraryHandle moduleHandle, IList<ResourceName> iconNames)
         {
             _moduleHandle = moduleHandle;
             _iconNames = new ReadOnlyCollection<ResourceName>(iconNames);
         }
 
-        public SafeModuleHandle ModuleHandle
+        public SafeLibraryHandle ModuleHandle
         {
             get { return _moduleHandle; }
         }
@@ -54,7 +54,7 @@ namespace AudioSwitcher.Presentation.Drawing
             return GetIconFromLib(index);
         }
 
-        public static IconExtractor Open(string fileName)
+        public static unsafe IconExtractor Open(string fileName)
         {
             if (fileName == null)
                 throw new ArgumentNullException("fileName");
@@ -65,14 +65,14 @@ namespace AudioSwitcher.Presentation.Drawing
             fileName = Path.GetFullPath(fileName);
             fileName = Environment.ExpandEnvironmentVariables(fileName);
 
-            SafeModuleHandle moduleHandle = DllImports.LoadLibraryEx(fileName, IntPtr.Zero, LoadLibraryExFlags.LOAD_LIBRARY_AS_DATAFILE);
+            SafeLibraryHandle moduleHandle = LoadLibraryEx(fileName, IntPtr.Zero, Kernel32.LoadLibraryExFlags.LOAD_LIBRARY_AS_DATAFILE);
             if (moduleHandle.IsInvalid)
                 throw Win32Marshal.GetExceptionForLastWin32Error(fileName);
 
             List<ResourceName> iconNames = new List<ResourceName>();
-            DllImports.EnumResourceNames(moduleHandle, ResourceTypes.RT_GROUP_ICON, (hModule, lpszType, lpszName, lParam) =>
+            EnumResourceNames(moduleHandle, RT_GROUP_ICON, (hModule, lpszType, lpszName, lParam) =>
                 {
-                    if (lpszType == ResourceTypes.RT_GROUP_ICON)
+                    if (lpszType == RT_GROUP_ICON)
                         iconNames.Add(new ResourceName(lpszName));
 
                     return true;
@@ -123,36 +123,37 @@ namespace AudioSwitcher.Presentation.Drawing
         /// </summary>
         /// <param name="index">The index of the RT_GROUP_ICON in the executable module.</param>
         /// <returns>Returns System.Drawing.Icon.</returns>
-        private Icon GetIconFromLib(int index)
+        private unsafe Icon GetIconFromLib(int index)
         {
-            byte[] resourceData = GetResourceData(this.ModuleHandle, this.IconNames[index], ResourceTypes.RT_GROUP_ICON);
             //Convert the resouce into an .ico file image.
-            using (MemoryStream inputStream = new MemoryStream(resourceData))
+            using (UnmanagedMemoryStream inputStream = GetResourceData(this.ModuleHandle, this.IconNames[index], RT_GROUP_ICON))
             using (MemoryStream destStream = new MemoryStream())
             {
                 //Read the GroupIconDir header.
-                GroupIconDir grpDir = inputStream.Read<GroupIconDir>();
+                GRPICONDIR grpDir = inputStream.Read<GRPICONDIR>();
 
-                int numEntries = grpDir.Count;
-                int iconImageOffset = IconInfo.SizeOfIconDir + numEntries * IconInfo.SizeOfIconDirEntry;
+                ushort numEntries = grpDir.idCount;
+                uint iconImageOffset = (uint)(IconInfo.SizeOfIconDir + numEntries * IconInfo.SizeOfIconDirEntry);
 
-                destStream.Write<IconDir>(grpDir.ToIconDir());
+                destStream.Write<ICONDIR>(grpDir.ToIconDir());
                 for (int i = 0; i < numEntries; i++)
                 {
                     //Read the GroupIconDirEntry.
-                    GroupIconDirEntry grpEntry = inputStream.Read<GroupIconDirEntry>();
+                    GRPICONDIRENTRY grpEntry = inputStream.Read<GRPICONDIRENTRY>();
 
                     //Write the IconDirEntry.
                     destStream.Seek(IconInfo.SizeOfIconDir + i * IconInfo.SizeOfIconDirEntry, SeekOrigin.Begin);
-                    destStream.Write<IconDirEntry>(grpEntry.ToIconDirEntry(iconImageOffset));
+                    destStream.Write<ICONDIRENTRY>(grpEntry.ToIconDirEntry(iconImageOffset));
 
                     //Get the icon image raw data and write it to the stream.
-                    byte[] imgBuf = GetResourceData(this.ModuleHandle, grpEntry.ID, ResourceTypes.RT_ICON);
-                    destStream.Seek(iconImageOffset, SeekOrigin.Begin);
-                    destStream.Write(imgBuf, 0, imgBuf.Length);
-                    
-                    //Append the iconImageOffset.
-                    iconImageOffset += imgBuf.Length;
+                    using (UnmanagedMemoryStream imgBuf = GetResourceData(this.ModuleHandle, grpEntry.nId, RT_ICON))
+                    {
+                        destStream.Seek(iconImageOffset, SeekOrigin.Begin);
+                        imgBuf.CopyTo(destStream);
+
+                        //Append the iconImageOffset.
+                        iconImageOffset += (uint)imgBuf.Length;
+                    }
                 }
                 destStream.Seek(0, SeekOrigin.Begin);
                 return new Icon(destStream);
@@ -165,40 +166,36 @@ namespace AudioSwitcher.Presentation.Drawing
         /// <param name="resourceName">The name of the resource.</param>
         /// <param name="resourceType">The type of the resource.</param>
         /// <returns>The resource raw data.</returns>
-        private static byte[] GetResourceData(SafeModuleHandle hModule, ResourceName resourceName, ResourceTypes resourceType)
+        private static unsafe UnmanagedMemoryStream GetResourceData(SafeLibraryHandle hModule, ResourceName resourceName, char* resourceType)
         {
             //Find the resource in the module.
-            IntPtr hResInfo = IntPtr.Zero;
-            try { hResInfo = DllImports.FindResource(hModule, resourceName.Value, resourceType); }
+            IntPtr hResInfo;
+            try { hResInfo = FindResource(hModule, resourceName.Value, resourceType); }
             finally { resourceName.Dispose(); }
             if (hResInfo == IntPtr.Zero)
             {
                 throw new Win32Exception();
             }
             //Load the resource.
-            IntPtr hResData = DllImports.LoadResource(hModule, hResInfo);
+            IntPtr hResData = LoadResource(hModule, hResInfo);
             if (hResData == IntPtr.Zero)
             {
                 throw new Win32Exception();
             }
             //Lock the resource to read data.
-            IntPtr hGlobal = DllImports.LockResource(hResData);
-            if (hGlobal == IntPtr.Zero)
+            void* hGlobal = LockResource(hResData);
+            if (hGlobal == null)
             {
                 throw new Win32Exception();
             }
             //Get the resource size.
-            int resSize = DllImports.SizeofResource(hModule, hResInfo);
+            int resSize = SizeofResource(hModule, hResInfo);
             if (resSize == 0)
             {
                 throw new Win32Exception();
             }
-            //Allocate the requested size.
-            byte[] buf = new byte[resSize];
-            //Copy the resource data into our buffer.
-            Marshal.Copy(hGlobal, buf, 0, buf.Length);
-
-            return buf;
+            
+            return new UnmanagedMemoryStream((byte*)hGlobal, resSize);
         }
         /// <summary>
         /// Extracts the raw data of the resource from the module.
@@ -207,38 +204,34 @@ namespace AudioSwitcher.Presentation.Drawing
         /// <param name="resourceId">The identifier of the resource.</param>
         /// <param name="resourceType">The type of the resource.</param>
         /// <returns>The resource raw data.</returns>
-        private static byte[] GetResourceData(SafeModuleHandle hModule, int resourceId, ResourceTypes resourceType)
+        private static unsafe UnmanagedMemoryStream GetResourceData(SafeLibraryHandle hModule, int resourceId, char* resourceType)
         {
             //Find the resource in the module.
-            IntPtr hResInfo = DllImports.FindResource(hModule, (IntPtr) resourceId, resourceType); 
+            IntPtr hResInfo = FindResource(hModule, MAKEINTRESOURCE(resourceId), resourceType); 
             if (hResInfo == IntPtr.Zero)
             {
                 throw new Win32Exception();
             }
             //Load the resource.
-            IntPtr hResData = DllImports.LoadResource(hModule, hResInfo);
+            IntPtr hResData = LoadResource(hModule, hResInfo);
             if (hResData == IntPtr.Zero)
             {
                 throw new Win32Exception();
             }
             //Lock the resource to read data.
-            IntPtr hGlobal = DllImports.LockResource(hResData);
-            if (hGlobal == IntPtr.Zero)
+            void* hGlobal = LockResource(hResData);
+            if (hGlobal == null)
             {
                 throw new Win32Exception();
             }
             //Get the resource size.
-            int resSize = DllImports.SizeofResource(hModule, hResInfo);
+            int resSize = SizeofResource(hModule, hResInfo);
             if (resSize == 0)
             {
                 throw new Win32Exception();
             }
-            //Allocate the requested size.
-            byte[] buf = new byte[resSize];
-            //Copy the resource data into our buffer.
-            Marshal.Copy(hGlobal, buf, 0, buf.Length);
-
-            return buf;
+            
+            return new UnmanagedMemoryStream((byte*)hGlobal, resSize);
         }
 
         public void Dispose()
