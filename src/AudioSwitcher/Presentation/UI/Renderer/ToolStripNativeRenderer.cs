@@ -485,9 +485,8 @@ namespace AudioSwitcher.Presentation.UI
             }
         }
 
-        private unsafe Padding GetThemeMargins(IDeviceContext dc, MarginTypes marginType)
+        private Padding GetThemeMargins(IDeviceContext dc, MarginTypes marginType)
         {
-            
             try
             {
                 SafeDCHandle hDC = new SafeDCHandle(IntPtr.Zero, dc.GetHdc(), false);
